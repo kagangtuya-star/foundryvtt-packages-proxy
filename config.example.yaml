@@ -1,0 +1,55 @@
+# FVTT 下载加速代理配置文件
+# 复制此文件为 config.yaml 并根据需要修改
+
+server:
+  # 服务器端口
+  port: 3000
+  # 绑定地址 (0.0.0.0 表示监听所有接口)
+  host: "0.0.0.0"
+  # 公开访问的基础URL (部署后的实际地址)
+  # 用于客户端获取代理地址和作为兜底代理
+  publicUrl: "https://your-proxy-server.com"
+
+# HTTPS 配置 (生产环境建议使用反向代理如 nginx 处理 HTTPS)
+https:
+  enabled: false
+  # 证书文件路径 (如果 enabled 为 true)
+  cert: "./certs/cert.pem"
+  key: "./certs/key.pem"
+
+# 代理列表，按优先级排序，失败时自动切换到下一个
+# 后端服务器 (publicUrl) 将作为最后的兜底代理
+proxies:
+  github:
+    - "https://gh-proxy.com/"
+    - "https://ghproxy.net/"
+    - "https://mirror.ghproxy.com/"
+    - "https://ghps.cc/"
+  gitlab:
+    # GitLab 镜像代理 (如有)
+    - "https://gitlab.com/"
+  # 代理超时时间 (毫秒)
+  timeout: 10000
+  # 健康检查间隔 (毫秒)
+  healthCheckInterval: 60000
+
+# FVTT API 缓存配置
+cache:
+  enabled: true
+  # 缓存时间 (秒) - 30分钟
+  ttl: 1800
+  # 最大缓存条目数
+  maxEntries: 100
+
+# 日志配置
+logging:
+  level: "info"  # debug, info, warn, error
+  # 是否记录请求日志
+  logRequests: true
+
+# CORS 配置
+cors:
+  enabled: true
+  # 允许的来源 (设为 * 允许所有)
+  origins:
+    - "*"

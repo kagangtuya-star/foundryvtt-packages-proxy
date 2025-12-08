@@ -1,0 +1,31 @@
+{
+    "name": "fvtt-proxy-server",
+    "version": "1.0.0",
+    "description": "FoundryVTT GitHub/GitLab 下载加速代理服务器",
+    "main": "server/index.js",
+    "type": "module",
+    "scripts": {
+        "start": "node server/index.js",
+        "dev": "node --watch server/index.js"
+    },
+    "keywords": [
+        "foundryvtt",
+        "proxy",
+        "github",
+        "gitlab",
+        "mirror"
+    ],
+    "author": "Sora",
+    "license": "MIT",
+    "dependencies": {
+        "express": "^4.18.2",
+        "js-yaml": "^4.1.0",
+        "cors": "^2.8.5",
+        "http-proxy-middleware": "^3.0.0",
+        "node-cache": "^5.1.2",
+        "winston": "^3.11.0"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}

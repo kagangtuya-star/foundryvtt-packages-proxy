@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.*
+
+# Config files (user should provide their own)
+config.yaml
+
+# SSL certificates
+certs/
+*.pem
+*.key
+*.crt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Client files (not needed in Docker)
+client/
+
+# Original FVTT files
+package.mjs
+views.mjs
+说明.txt
+
+# Test files
+test/
+tests/
+*.test.js
+*.spec.js
+
+# Documentation
+*.md
+!README.md
+
+# Build artifacts
+dist/
+build/
