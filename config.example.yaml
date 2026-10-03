@@ -18,20 +18,17 @@ https:
   key: "./certs/key.pem"
 
 # 代理列表，按优先级排序，失败时自动切换到下一个
-# 后端服务器 (publicUrl) 将作为最后的兜底代理
+# 客户端统一请求后端，由后端尝试镜像，最后直连原始 URL
 proxies:
   github:
     - "https://gh-proxy.com/"
     - "https://ghproxy.net/"
     - "https://mirror.ghproxy.com/"
     - "https://ghps.cc/"
-  gitlab:
-    # GitLab 镜像代理 (如有)
-    - "https://gitlab.com/"
-  # 代理超时时间 (毫秒)
+  # 无镜像时直接访问 GitLab；不要把 https://gitlab.com/ 当作代理前缀
+  gitlab: []
+  # 每个节点获取响应头的总超时，以及传输期间的空闲超时 (毫秒)
   timeout: 10000
-  # 健康检查间隔 (毫秒)
-  healthCheckInterval: 60000
 
 # FVTT v14.368 上游包接口
 fvtt:
@@ -61,3 +58,4 @@ cors:
   # 允许的来源 (设为 * 允许所有)
   origins:
     - "*"
+

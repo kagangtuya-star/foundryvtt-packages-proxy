@@ -19,7 +19,7 @@ router.get('/health', (req, res) => {
 
 /**
  * GET /api/proxies
- * 获取当前可用的代理列表
+ * 获取配置的代理列表（非实时健康检查）
  */
 router.get('/proxies', (req, res) => {
     const { github, gitlab, timeout } = config.proxies;
@@ -57,3 +57,4 @@ router.post('/cache/flush', (req, res) => {
 });
 
 export default router;
+

@@ -26,11 +26,8 @@ const defaultConfig = {
             'https://mirror.ghproxy.com/',
             'https://ghps.cc/'
         ],
-        gitlab: [
-            'https://gitlab.com/'
-        ],
-        timeout: 10000,
-        healthCheckInterval: 60000
+        gitlab: [],
+        timeout: 10000
     },
     fvtt: {
         packageIndexUrl: 'https://r2.foundryvtt.com/package-api-public/index-latest.json',
@@ -129,3 +126,4 @@ const config = loadConfig();
 
 export default config;
 export { loadConfig, ROOT_DIR };
+

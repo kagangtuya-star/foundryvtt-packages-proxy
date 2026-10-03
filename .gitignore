@@ -1,5 +1,8 @@
 .ace-tool/
 /fixs
 /.codanna
-/client
+/client/*
+!/client/proxy-routing.mjs
+!/client/proxy-helper.mjs
 /node_modules
+

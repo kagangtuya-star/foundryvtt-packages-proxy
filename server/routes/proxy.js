@@ -1,14 +1,10 @@
 import { Router } from 'express';
-import http from 'node:http';
-import https from 'node:https';
+import config from '../config.js';
+import { proxyWithFailover } from '../utils/proxy-transport.js';
 import { URL } from 'node:url';
 import logger from '../utils/logger.js';
 
 const router = Router();
-
-// HTTP/HTTPS agents with keep-alive for better performance
-const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 100 });
-const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 100 });
 
 // GitHub 相关域名匹配模式
 const GITHUB_DOMAINS = [
@@ -44,137 +40,17 @@ function isAllowedTarget(url) {
     return matchesDomains(url, [...GITHUB_DOMAINS, ...GITLAB_DOMAINS]);
 }
 
-/**
- * 发起代理请求 (支持重定向)
- * @param {string} targetUrl 目标URL
- * @param {object} req Express请求对象
- * @param {object} res Express响应对象
- * @param {number} redirectCount 重定向计数
- */
-function proxyRequest(targetUrl, req, res, redirectCount = 0) {
-    // 防止无限重定向
-    if (redirectCount > 10) {
-        logger.error(`Too many redirects for: ${targetUrl}`);
-        return res.status(502).json({ error: 'Too many redirects' });
-    }
-
-    let parsedUrl;
-    try {
-        parsedUrl = new URL(targetUrl);
-    } catch (e) {
-        logger.error(`Invalid URL: ${targetUrl}`);
-        return res.status(400).json({ error: 'Invalid URL', url: targetUrl });
-    }
-
-    const isHttps = parsedUrl.protocol === 'https:';
-    const httpModule = isHttps ? https : http;
-
-    logger.info(`Proxying: ${req.method} ${targetUrl}${redirectCount > 0 ? ` (redirect ${redirectCount})` : ''}`);
-
-    const options = {
-        hostname: parsedUrl.hostname,
-        port: parsedUrl.port || (isHttps ? 443 : 80),
-        path: parsedUrl.pathname + parsedUrl.search,
-        method: req.method,
-        agent: isHttps ? httpsAgent : httpAgent,
-        headers: {
-            'Host': parsedUrl.host,
-            'User-Agent': req.headers['user-agent'] || 'FVTT-Proxy-Server/1.0',
-            'Accept': req.headers['accept'] || '*/*',
-            'Accept-Language': req.headers['accept-language'] || 'en-US,en;q=0.9',
-            'Connection': 'keep-alive'
-        }
-    };
-
-    // 对于特定请求类型，添加额外 headers
-    if (req.headers['authorization']) {
-        options.headers['Authorization'] = req.headers['authorization'];
-    }
-    if (req.headers['content-type']) {
-        options.headers['Content-Type'] = req.headers['content-type'];
-    }
-    if (req.headers['content-length']) {
-        options.headers['Content-Length'] = req.headers['content-length'];
-    }
-
-    const proxyReq = httpModule.request(options, (proxyRes) => {
-        const statusCode = proxyRes.statusCode;
-
-        // 处理重定向
-        if ([301, 302, 303, 307, 308].includes(statusCode) && proxyRes.headers.location) {
-            const location = proxyRes.headers.location;
-            // 解析重定向 URL (可能是相对路径)
-            const redirectUrl = new URL(location, targetUrl).href;
-            if (!isAllowedTarget(redirectUrl)) {
-                proxyRes.resume();
-                logger.error(`Blocked redirect outside the allow-list: ${redirectUrl}`);
-                return res.status(502).json({
-                    error: 'Blocked redirect target',
-                    url: redirectUrl
-                });
-            }
-            logger.info(`Following redirect: ${statusCode} -> ${redirectUrl}`);
-
-            // 消费当前响应体
-            proxyRes.resume();
-
-            // 递归跟随重定向
-            return proxyRequest(redirectUrl, req, res, redirectCount + 1);
-        }
-
-        // 设置响应头
-        const headers = {};
-        for (const [key, value] of Object.entries(proxyRes.headers)) {
-            // 跳过某些 headers
-            const lowerKey = key.toLowerCase();
-            if (!['transfer-encoding', 'connection', 'keep-alive'].includes(lowerKey)) {
-                headers[key] = value;
-            }
-        }
-
-        // 添加代理标识
-        headers['X-Proxied-By'] = 'FVTT-Proxy-Server';
-        headers['X-Original-URL'] = targetUrl;
-
-        // 发送响应头
-        res.writeHead(statusCode, headers);
-
-        // 直接 pipe 响应数据（流式传输）
-        proxyRes.pipe(res);
-
-        // 错误处理 - 客户端断开连接时会触发 aborted，这是正常的
-        proxyRes.on('error', (err) => {
-            if (err.message !== 'aborted') {
-                logger.error(`Upstream response error: ${err.message}`);
-            }
-        });
+/** GitHub/GitLab mirrors are tried in configuration order, then direct access. */
+function proxyRequest(targetUrl, req, res) {
+    const kind = matchesDomains(targetUrl, GITHUB_DOMAINS) ? 'github'
+        : matchesDomains(targetUrl, GITLAB_DOMAINS) ? 'gitlab' : null;
+    return proxyWithFailover(targetUrl, req, res, {
+        proxies: kind ? config.proxies[kind] : [],
+        serverBase: config.server.publicUrl,
+        timeout: config.proxies.timeout,
+        isAllowedTarget,
+        logger
     });
-
-    // 请求错误
-    proxyReq.on('error', (err) => {
-        logger.error(`Proxy request error: ${err.message}`);
-        if (!res.headersSent) {
-            res.status(502).json({
-                error: 'Proxy request failed',
-                message: err.message,
-                url: targetUrl
-            });
-        }
-    });
-
-    // 客户端断开连接时，中止代理请求
-    res.on('close', () => {
-        if (!proxyReq.destroyed) {
-            proxyReq.destroy();
-        }
-    });
-
-    // 转发请求体（如果有）
-    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
-        req.pipe(proxyReq);
-    } else {
-        proxyReq.end();
-    }
 }
 
 /**
@@ -301,3 +177,4 @@ router.all('/*', (req, res) => {
 });
 
 export default router;
+
